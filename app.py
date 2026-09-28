@@ -29,6 +29,7 @@ Features:
 import csv
 import hashlib
 import io
+import os
 import time
 from datetime import datetime
 from pathlib import Path
@@ -36,6 +37,19 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import streamlit as st
 from PIL import Image
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+# Ensure API key from Streamlit secrets (for cloud deployments) is mirrored into os.environ
+try:
+    if hasattr(st, "secrets") and "GEMINI_API_KEY" in st.secrets:
+        os.environ["GEMINI_API_KEY"] = st.secrets["GEMINI_API_KEY"]
+except Exception:
+    pass
 
 from backend import (
     analyze_threat,
@@ -64,167 +78,319 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    /* Global Background and Typography */
+    /* 1. Global High-Contrast Color Enforcement */
     .stApp {
-        background-color: #f8fafc;
-        color: #0f172a;
+        background-color: #f8fafc !important;
+        color: #0f172a !important;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
     }
 
-    /* Top Official Government Portal Banner */
+    /* Force all text headers and body text to dark charcoal/navy */
+    h1, h2, h3, h4, h5, h6,
+    [data-testid="stMarkdownContainer"] h1,
+    [data-testid="stMarkdownContainer"] h2,
+    [data-testid="stMarkdownContainer"] h3,
+    [data-testid="stMarkdownContainer"] h4,
+    [data-testid="stMarkdownContainer"] h5,
+    [data-testid="stMarkdownContainer"] h6,
+    [data-testid="stMarkdownContainer"] p,
+    [data-testid="stMarkdownContainer"] span,
+    [data-testid="stMarkdownContainer"] label,
+    [data-testid="stWidgetLabel"] p,
+    [data-testid="stWidgetLabel"] span {
+        color: #0f172a !important;
+    }
+
+    /* Preserve strong/bold contrast */
+    [data-testid="stMarkdownContainer"] strong {
+        color: #0b3b60 !important;
+        font-weight: 700 !important;
+    }
+
+    /* Streamlit Captions */
+    [data-testid="stCaptionContainer"] p,
+    .stCaption,
+    small {
+        color: #475569 !important;
+        font-weight: 500 !important;
+    }
+
+    /* 2. Top Official Government Portal Banner */
     .gov-header {
-        background: linear-gradient(135deg, #0b3b60 0%, #07263e 100%);
-        color: #ffffff;
+        background: linear-gradient(135deg, #0b3b60 0%, #07263e 100%) !important;
         padding: 22px 28px;
         border-radius: 8px;
-        border-bottom: 4px solid #f97316; /* Indian National Saffron Trim */
+        border-bottom: 4px solid #f97316;
         margin-bottom: 24px;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     }
-    .gov-badge-row {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 6px;
+    .gov-header .gov-title {
+        color: #ffffff !important;
+        font-size: 28px;
+        font-weight: 800;
+        letter-spacing: -0.5px;
+        margin: 0;
+        line-height: 1.2;
     }
-    .gov-badge-text {
+    .gov-header .gov-subtitle {
+        color: #cbd5e1 !important;
+        font-size: 14px;
+        margin-top: 6px;
+        line-height: 1.4;
+    }
+    .gov-header .gov-badge-text {
         font-size: 11px;
         font-weight: 700;
         letter-spacing: 1.2px;
         text-transform: uppercase;
-        color: #f97316;
-        background: rgba(249, 115, 22, 0.12);
+        color: #f97316 !important;
+        background: rgba(249, 115, 22, 0.15) !important;
         padding: 3px 8px;
         border-radius: 4px;
-        border: 1px solid rgba(249, 115, 22, 0.3);
+        border: 1px solid rgba(249, 115, 22, 0.4);
     }
-    .gov-title {
-        font-size: 28px;
-        font-weight: 800;
-        letter-spacing: -0.5px;
-        color: #ffffff;
-        margin: 0;
-        line-height: 1.2;
-    }
-    .gov-subtitle {
-        font-size: 14px;
-        color: #cbd5e1;
-        margin-top: 6px;
-        line-height: 1.4;
+    .gov-header span {
+        color: #94a3b8 !important;
     }
 
-    /* High-Contrast GovTech Threat Alert Cards */
+    /* 3. High-Contrast GovTech Threat Alert Cards */
     .threat-card-high {
-        background-color: #fef2f2;
-        border: 1.5px solid #dc2626;
-        border-left: 8px solid #dc2626;
+        background-color: #fef2f2 !important;
+        border: 1.5px solid #dc2626 !important;
+        border-left: 8px solid #dc2626 !important;
         border-radius: 8px;
         padding: 18px 22px;
         margin: 16px 0;
         box-shadow: 0 1px 3px rgba(220, 38, 38, 0.08);
     }
+    .threat-card-high, .threat-card-high * {
+        color: #7f1d1d !important;
+    }
+    .threat-card-high .threat-card-title {
+        color: #991b1b !important;
+        font-size: 20px;
+        font-weight: 800;
+        margin-bottom: 6px;
+    }
+
     .threat-card-medium {
-        background-color: #fffbeb;
-        border: 1.5px solid #d97706;
-        border-left: 8px solid #d97706;
+        background-color: #fffbeb !important;
+        border: 1.5px solid #d97706 !important;
+        border-left: 8px solid #d97706 !important;
         border-radius: 8px;
         padding: 18px 22px;
         margin: 16px 0;
         box-shadow: 0 1px 3px rgba(217, 119, 6, 0.08);
     }
+    .threat-card-medium, .threat-card-medium * {
+        color: #78350f !important;
+    }
+    .threat-card-medium .threat-card-title {
+        color: #92400e !important;
+        font-size: 20px;
+        font-weight: 800;
+        margin-bottom: 6px;
+    }
+
     .threat-card-low {
-        background-color: #f0fdf4;
-        border: 1.5px solid #16a34a;
-        border-left: 8px solid #16a34a;
+        background-color: #f0fdf4 !important;
+        border: 1.5px solid #16a34a !important;
+        border-left: 8px solid #16a34a !important;
         border-radius: 8px;
         padding: 18px 22px;
         margin: 16px 0;
         box-shadow: 0 1px 3px rgba(22, 163, 74, 0.08);
     }
-
-    .threat-card-title {
+    .threat-card-low, .threat-card-low * {
+        color: #14532d !important;
+    }
+    .threat-card-low .threat-card-title {
+        color: #166534 !important;
         font-size: 20px;
         font-weight: 800;
-        margin-bottom: 4px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-    .threat-card-sub {
-        font-size: 14px;
-        font-weight: 500;
+        margin-bottom: 6px;
     }
 
-    /* Law Enforcement NCRP Incident Banner */
+    /* 4. Law Enforcement NCRP Incident Banner */
     .ncrp-dispatch-banner {
-        background-color: #eff6ff;
-        border: 1.5px solid #2563eb;
-        border-left: 8px solid #1d4ed8;
+        background-color: #eff6ff !important;
+        border: 1.5px solid #2563eb !important;
+        border-left: 8px solid #1d4ed8 !important;
         border-radius: 8px;
         padding: 16px 20px;
         margin: 16px 0;
         box-shadow: 0 2px 4px rgba(37, 99, 235, 0.08);
     }
+    .ncrp-dispatch-banner,
+    .ncrp-dispatch-banner div,
+    .ncrp-dispatch-banner p,
+    .ncrp-dispatch-banner span:not(.ncrp-badge-id):not(.ioc-chip) {
+        color: #1e293b !important;
+    }
+    .ncrp-badge-id {
+        background: #1e40af !important;
+        color: #ffffff !important;
+        padding: 4px 12px;
+        border-radius: 4px;
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+    }
 
-    /* Accessible Hindi Audio Advisory Card */
+    /* 5. Accessible Hindi Audio Advisory Card */
     .hindi-audio-card {
-        background-color: #f5f3ff;
-        border: 1.5px solid #7c3aed;
-        border-left: 8px solid #6d28d9;
+        background-color: #f5f3ff !important;
+        border: 1.5px solid #7c3aed !important;
+        border-left: 8px solid #6d28d9 !important;
         border-radius: 8px;
         padding: 16px 20px;
         margin: 16px 0;
     }
-
-    /* Clean Card Container */
-    .gov-card {
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        padding: 18px;
-        margin-bottom: 16px;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    .hindi-audio-card .hindi-audio-title {
+        font-size: 13px;
+        font-weight: 800;
+        color: #6d28d9 !important;
+        margin-bottom: 6px;
+    }
+    .hindi-audio-card .hindi-audio-text {
+        font-size: 17px;
+        font-weight: 700;
+        color: #3b0764 !important;
+        margin-bottom: 8px;
+        line-height: 1.4;
+    }
+    .hindi-audio-card .hindi-audio-sub {
+        font-size: 12px;
+        color: #5b21b6 !important;
+        font-weight: 500;
     }
 
-    /* Metric & Tag Chips */
+    /* 6. Metric & Tag Chips */
     .ioc-chip {
         display: inline-block;
-        background-color: #f1f5f9;
-        color: #0f172a;
+        background-color: #e2e8f0 !important;
+        color: #0f172a !important;
         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-        font-size: 12px;
-        font-weight: 600;
-        padding: 4px 10px;
-        margin: 3px;
-        border-radius: 6px;
-        border: 1px solid #cbd5e1;
-    }
-    .tactic-chip {
-        display: inline-block;
-        background-color: #fef3c7;
-        color: #92400e;
         font-size: 12px;
         font-weight: 700;
         padding: 4px 10px;
         margin: 3px;
         border-radius: 6px;
-        border: 1px solid #fde68a;
+        border: 1px solid #cbd5e1 !important;
+    }
+    .tactic-chip {
+        display: inline-block;
+        background-color: #fef3c7 !important;
+        color: #92400e !important;
+        font-size: 12px;
+        font-weight: 800;
+        padding: 5px 12px;
+        margin: 4px;
+        border-radius: 6px;
+        border: 1px solid #fcd34d !important;
     }
 
-    /* Sidebar Clean Government Styling */
+    /* 7. Streamlit Metric Cards */
+    div[data-testid="stMetric"] {
+        background: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 8px;
+        padding: 12px 16px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    }
+    div[data-testid="stMetricValue"] {
+        color: #0b3b60 !important;
+        font-weight: 800 !important;
+        font-size: 24px !important;
+    }
+    div[data-testid="stMetricLabel"] p {
+        color: #475569 !important;
+        font-weight: 700 !important;
+        font-size: 13px !important;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    /* 8. Sidebar Clean Government Styling */
     section[data-testid="stSidebar"] {
-        background-color: #ffffff;
-        border-right: 1px solid #e2e8f0;
+        background-color: #ffffff !important;
+        border-right: 1px solid #e2e8f0 !important;
+    }
+    section[data-testid="stSidebar"] * {
+        color: #0f172a !important;
+    }
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3 {
+        color: #0b3b60 !important;
+        font-weight: 800 !important;
+    }
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] label span {
+        color: #1e293b !important;
+        font-weight: 600 !important;
     }
 
-    /* Streamlit Tab High-Contrast Style */
+    /* 9. Streamlit Tab High-Contrast Style */
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
+        border-bottom: 2px solid #e2e8f0;
     }
     .stTabs [data-baseweb="tab"] {
         padding: 10px 18px;
         font-weight: 600;
         border-radius: 6px 6px 0 0;
+        color: #475569 !important;
+        background-color: #f1f5f9;
+        border: 1px solid #e2e8f0;
+        border-bottom: none;
+    }
+    .stTabs [aria-selected="true"] {
+        color: #0b3b60 !important;
+        background-color: #ffffff !important;
+        border-top: 3px solid #0b3b60 !important;
+        font-weight: 800 !important;
+    }
+
+    /* 10. Chat Message Bubbles in Strike Mode */
+    div[data-testid="stChatMessage"] {
+        background-color: #ffffff !important;
+        border: 1.5px solid #e2e8f0 !important;
+        border-radius: 8px;
+        padding: 14px 18px;
+        margin-bottom: 12px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    }
+    div[data-testid="stChatMessage"] p,
+    div[data-testid="stChatMessage"] span,
+    div[data-testid="stChatMessage"] strong {
+        color: #0f172a !important;
+        font-size: 14px;
+        line-height: 1.5;
+    }
+
+    /* 11. Form Inputs and Code Blocks */
+    textarea, input {
+        color: #0f172a !important;
+        background-color: #ffffff !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 6px !important;
+    }
+    div[data-testid="stCodeBlock"] {
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 6px;
+    }
+    div[data-testid="stCodeBlock"] pre {
+        background-color: #f8fafc !important;
+    }
+    div[data-testid="stCodeBlock"] code {
+        color: #0f172a !important;
+        font-weight: 600 !important;
+    }
+
+    /* 12. Alert Boxes */
+    div[data-testid="stAlert"] p {
+        color: #0f172a !important;
+        font-weight: 500;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -323,18 +489,14 @@ with st.sidebar:
 
     st.divider()
 
-    st.markdown("### ⚙️ System Configuration")
-    api_key_input = st.text_input(
-        "🔑 Google Gemini API Key",
-        type="password",
-        help="Enter your free API key from Google AI Studio (aistudio.google.com). If empty, the system operates in deterministic offline mock mode.",
-    )
-    api_key = api_key_input.strip()
+    st.markdown("### ⚙️ System Status")
+    is_live = bool(os.getenv("GEMINI_API_KEY", "").strip())
+    api_key = None  # Securely retrieved by backend via environment variable GEMINI_API_KEY
 
-    if api_key:
-        st.success("🟢 **Live Gemini API Connected**")
+    if is_live:
+        st.success("🟢 **Live Gemini 2.0 AI Online**\n\n*Server environment configured and authenticated securely.*")
     else:
-        st.info("🟡 **Offline Intelligence Active**\n\n*Running in deterministic offline mode for automated tests and demonstrations. Enter an API key for live Gemini 2.0 multimodal analysis.*")
+        st.info("🟡 **Offline Intelligence Active**\n\n*Running in deterministic offline heuristic mode. To activate live Gemini Multimodal AI, set `GEMINI_API_KEY` in the server `.env` file.*")
 
     st.divider()
 
@@ -373,10 +535,10 @@ with st.sidebar:
     st.divider()
 
     st.markdown("""
-    <div style="background-color: #f1f5f9; border-radius: 6px; padding: 12px; font-size: 12px; color: #334155; line-height: 1.5;">
-        <strong>🚨 National Cyber Helpline:</strong> <span style="font-size: 14px; font-weight: 800; color: #dc2626;">1930</span><br>
-        <strong>🌐 Citizen Portal:</strong> <a href="https://cybercrime.gov.in" target="_blank" style="color: #2563eb; text-decoration: none;">cybercrime.gov.in</a><br>
-        <strong>⚖️ Statutory Alignment:</strong> IT Act, 2000 & CERT-In Guidelines
+    <div style="background-color: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px; font-size: 12px; color: #334155; line-height: 1.5;">
+        <strong style="color: #0f172a !important;">🚨 National Cyber Helpline:</strong> <span style="font-size: 14px; font-weight: 800; color: #dc2626 !important;">1930</span><br>
+        <strong style="color: #0f172a !important;">🌐 Citizen Portal:</strong> <a href="https://cybercrime.gov.in" target="_blank" style="color: #2563eb !important; text-decoration: none; font-weight: 700;">cybercrime.gov.in</a><br>
+        <strong style="color: #0f172a !important;">⚖️ Statutory Alignment:</strong> <span style="color: #475569 !important;">IT Act, 2000 & CERT-In Guidelines</span>
     </div>
     """, unsafe_allow_html=True)
 
@@ -579,33 +741,33 @@ if st.session_state.threat_assessment and is_sentinel_active:
     if risk_level == "High":
         st.markdown(f"""
         <div class="threat-card-high">
-            <div class="threat-card-title" style="color: #b91c1c;">
+            <div class="threat-card-title" style="color: #991b1b !important;">
                 🚨 HIGH RISK THREAT DETECTED — {category}
             </div>
-            <div class="threat-card-sub" style="color: #7f1d1d;">
-                AI Confidence: <strong>{confidence}%</strong> | Threat Category: <strong>{category}</strong> | Source Vector: <strong>{channel}</strong>
+            <div class="threat-card-sub" style="color: #7f1d1d !important;">
+                AI Confidence: <strong style="color: #991b1b !important;">{confidence}%</strong> | Threat Category: <strong style="color: #991b1b !important;">{category}</strong> | Source Vector: <strong style="color: #991b1b !important;">{channel}</strong>
             </div>
         </div>
         """, unsafe_allow_html=True)
     elif risk_level == "Medium":
         st.markdown(f"""
         <div class="threat-card-medium">
-            <div class="threat-card-title" style="color: #b45309;">
+            <div class="threat-card-title" style="color: #92400e !important;">
                 ⚠️ MEDIUM RISK — SUSPICIOUS ACTIVITY DETECTED
             </div>
-            <div class="threat-card-sub" style="color: #78350f;">
-                AI Confidence: <strong>{confidence}%</strong> | Threat Category: <strong>{category}</strong> | Source Vector: <strong>{channel}</strong>
+            <div class="threat-card-sub" style="color: #78350f !important;">
+                AI Confidence: <strong style="color: #92400e !important;">{confidence}%</strong> | Threat Category: <strong style="color: #92400e !important;">{category}</strong> | Source Vector: <strong style="color: #92400e !important;">{channel}</strong>
             </div>
         </div>
         """, unsafe_allow_html=True)
     else:
         st.markdown(f"""
         <div class="threat-card-low">
-            <div class="threat-card-title" style="color: #15803d;">
+            <div class="threat-card-title" style="color: #166534 !important;">
                 ✅ LOW RISK — LIKELY SAFE / BENIGN COMMUNICATION
             </div>
-            <div class="threat-card-sub" style="color: #14532d;">
-                AI Confidence: <strong>{confidence}%</strong> | Verification: <strong>No malicious indicators identified</strong>
+            <div class="threat-card-sub" style="color: #14532d !important;">
+                AI Confidence: <strong style="color: #166534 !important;">{confidence}%</strong> | Verification: <strong style="color: #166534 !important;">No malicious indicators identified</strong>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -618,19 +780,19 @@ if st.session_state.threat_assessment and is_sentinel_active:
         st.markdown(f"""
         <div class="ncrp-dispatch-banner">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                <span style="font-size: 15px; font-weight: 800; color: #1e3a8a;">
+                <span style="font-size: 15px; font-weight: 800; color: #1e3a8a !important;">
                     🚨 STATE CYBER POLICE — THREAT INTELLIGENCE LOGGED
                 </span>
-                <span style="background: #1e40af; color: #ffffff; padding: 3px 10px; border-radius: 4px; font-size: 12px; font-weight: 700; letter-spacing: 0.5px;">
+                <span class="ncrp-badge-id">
                     {inc_id}
                 </span>
             </div>
-            <div style="font-size: 13px; color: #1e293b; line-height: 1.4;">
-                This threat incident has been automatically recorded to the <strong>State Cyber Police Threat Database (threat_log.csv)</strong>
+            <div style="font-size: 13px; color: #1e293b !important; line-height: 1.4;">
+                This threat incident has been automatically recorded to the <strong style="color: #0f172a !important;">State Cyber Police Threat Database (threat_log.csv)</strong>
                 in alignment with National Cyber Crime Reporting Portal (NCRP / I4C) directives.
             </div>
-            <div style="margin-top: 8px; font-size: 12px; color: #334155;">
-                <strong>Dispatched Indicators of Compromise ({len(iocs)}):</strong> {ioc_chips_html}
+            <div style="margin-top: 8px; font-size: 12px; color: #334155 !important;">
+                <strong style="color: #0f172a !important;">Dispatched Indicators of Compromise ({len(iocs)}):</strong> {ioc_chips_html}
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -706,13 +868,13 @@ if st.session_state.threat_assessment and is_sentinel_active:
         st.markdown("#### 🔊 Accessible Voice Warning (Hindi Audio Advisory):")
         st.markdown(f"""
         <div class="hindi-audio-card">
-            <div style="font-size: 13px; font-weight: 700; color: #6d28d9; margin-bottom: 4px;">
+            <div class="hindi-audio-title">
                 📢 HINDI AUDIO ADVISORY FOR CITIZENS & ELDERLY
             </div>
-            <div style="font-size: 16px; font-weight: 600; color: #3b0764; margin-bottom: 8px;">
+            <div class="hindi-audio-text">
                 "{hindi_text}"
             </div>
-            <div style="font-size: 11px; color: #7c3aed;">
+            <div class="hindi-audio-sub">
                 Audio is synthesized in-memory via gTTS (BytesIO stream) for accessible warning across regional demographics.
             </div>
         </div>
@@ -733,10 +895,10 @@ if is_strike_active:
     st.divider()
     st.markdown("## ⚔️ Strike Mode — Offensive Rahul Honeypot Counter-Tarpit")
     st.markdown("""
-    <div style="background-color: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 14px; margin-bottom: 14px; font-size: 13px; color: #334155; line-height: 1.5;">
-        <strong>Active Persona:</strong> 🧑‍🎓 <strong>Rahul (21yo College Student)</strong><br>
-        <em>A naive, easily confused B.Tech student stressed about semester exams, attendance, and hostel fees, using an old phone with a cracked screen.
-        Rahul stalls scammers with circular Hinglish questions, exam panic, and broken phone excuses while revealing strictly ZERO real credentials.</em>
+    <div style="background-color: #f1f5f9; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 16px; margin-bottom: 16px; font-size: 13px; color: #1e293b !important; line-height: 1.5;">
+        <strong style="color: #0f172a !important; font-size: 14px;">Active Persona:</strong> 🧑‍🎓 <strong style="color: #0b3b60 !important; font-size: 14px;">Rahul (21yo College Student)</strong><br>
+        <span style="color: #334155 !important; font-style: italic;">A naive, easily confused B.Tech student stressed about semester exams, attendance, and hostel fees, using an old phone with a cracked screen.
+        Rahul stalls scammers with circular Hinglish questions, exam panic, and broken phone excuses while revealing strictly ZERO real credentials.</span>
     </div>
     """, unsafe_allow_html=True)
 
@@ -778,10 +940,10 @@ if is_strike_active:
     for msg in st.session_state.strike_chat_history:
         if msg["role"] == "user":
             with st.chat_message("user", avatar="🦹"):
-                st.markdown(f"**Scammer:** {msg['content']}")
+                st.markdown(f"<span style='color: #991b1b !important; font-weight: 800;'>Scammer:</span> <span style='color: #0f172a !important;'>{msg['content']}</span>", unsafe_allow_html=True)
         else:
             with st.chat_message("assistant", avatar="🧑‍🎓"):
-                st.markdown(f"**Rahul:** {msg['content']}")
+                st.markdown(f"<span style='color: #0369a1 !important; font-weight: 800;'>Rahul:</span> <span style='color: #0f172a !important;'>{msg['content']}</span>", unsafe_allow_html=True)
 
     # Quick Scammer Follow-up Actions for Fast Testing
     if st.session_state.strike_chat_history:
