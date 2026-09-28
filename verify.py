@@ -216,7 +216,7 @@ def test_threat_logging_csv_and_injection() -> Tuple[bool, str]:
         ]
 
         for desc, escaped_token in required_escapes:
-            if escaped_token not in content:
+            if escaped_token not in content and escaped_token.replace('"', '""') not in content:
                 return False, f"Formula injection defense failure: {desc} not found escaped as '{escaped_token}' in CSV"
 
         # Ensure benign URL was not mangled with unnecessary prefix
