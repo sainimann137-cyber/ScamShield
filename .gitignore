@@ -2,5 +2,7 @@
 __pycache__/
 *.pyc
 .env
+.env.local
+.streamlit/secrets.toml
 threat_log.csv
 *.mp3
