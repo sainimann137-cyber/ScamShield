@@ -812,8 +812,8 @@ def analyze_threat(
                 "screenshot for scam or fraud indicators."
             )
 
-        # Model cascade for high reliability
-        models_to_try = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
+        # Model cascade for high reliability across Gemini model generations
+        models_to_try = ["gemini-2.5-flash", "gemini-3.8-flash", "gemini-flash-latest", "gemini-2.0-flash", "gemini-1.5-flash"]
         last_error = None
 
         for model_name in models_to_try:
@@ -1101,13 +1101,18 @@ def generate_honeypot_reply(
     # 3. Call Gemini for dynamic roleplay
     try:
         genai.configure(api_key=effective_key)
-        model = genai.GenerativeModel(
-            model_name="gemini-2.0-flash",
-            system_instruction=RAHUL_HONEYPOT_SYSTEM_PROMPT,
-        )
-        response = model.generate_content(prompt_content)
-        if response and response.text:
-            return response.text.strip()
+        honeypot_models = ["gemini-2.5-flash", "gemini-3.8-flash", "gemini-flash-latest", "gemini-2.0-flash"]
+        for m_name in honeypot_models:
+            try:
+                model = genai.GenerativeModel(
+                    model_name=m_name,
+                    system_instruction=RAHUL_HONEYPOT_SYSTEM_PROMPT,
+                )
+                response = model.generate_content(prompt_content)
+                if response and response.text:
+                    return response.text.strip()
+            except Exception:
+                continue
         return _get_mock_honeypot_reply(last_scammer_msg)
     except Exception as e:
         logger.warning(f"Honeypot Gemini call failed: {e}. Using offline reply.")
